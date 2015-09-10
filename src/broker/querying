@@ -1,0 +1,188 @@
+ ## 
+ ##  Copyright (c) 2015, nexGIN, RC.
+ ##  All rights reserved.
+ ## 
+ ##  This source code is licensed under the BSD-style license found in the
+ ##  LICENSE file in the root directory of this source tree. An additional grant
+ ## of patent rights can be found in the PATENTS file in the same directory.
+ ##
+ ##
+
+##! Functions for peering and osquery querying/
+
+%%{
+#include "broker/OsqueryManager.h"
+#include "logging/Manager.h"
+#include "broker/Data.h"
+#include "broker/data.bif.h"
+%%}
+
+
+module osquery;
+
+type osquery::EndpointFlags: record;
+
+## Enable use of communication.
+##
+## flags: used to tune the local Broker endpoint behavior.
+##
+## Returns: true if communication is successfully initialized.
+function osquery::enable%(flags: EndpointFlags &default = EndpointFlags()%): bool
+	%{
+	return new Val(osquery_mgr->Enable(flags), TYPE_BOOL);
+	%}
+
+## Allow sending messages to peers if associated with the given topic.
+## This has no effect if auto publication behavior is enabled via the flags
+##
+## topic: a topic to allow messages to be published under.
+##
+## Returns: true if successful.
+function osquery::publish_topic%(topic: string%): bool
+	%{
+	return new Val(osquery_mgr->PublishTopic(topic->CheckString()), TYPE_BOOL);
+	%}
+
+## Disallow sending messages to peers if associated with the given topic.
+## This has no effect if auto publication behavior is enabled via the flags
+##
+## topic: a topic to disallow messages to be published under.
+##
+## Returns: true if successful.
+function osquery::unpublish_topic%(topic: string%): bool
+	%{
+	return new Val(osquery_mgr->UnpublishTopic(topic->CheckString()), TYPE_BOOL);
+	%}
+
+
+## Initiate a remote connection with a single host.
+##
+## a: an address to connect to, e.g. "localhost" or "127.0.0.1".
+##
+## p: the TCP port on which the remote side is listening.
+##
+## retry: an interval at which to retry establishing the
+##        connection with the remote peer if it cannot be made initially, or
+##        if it ever becomes disconnected.
+##
+## Returns: true if it's possible to try connecting with the peer and
+##          it's a new peer.  The actual connection may not be established
+##          until a later point in time.
+##
+function osquery::connect%(a: string, p: port, retry: interval%): bool
+	%{
+	if ( ! p->IsTCP() )
+		{
+		reporter->Error("remote connection port must use tcp");
+		return new Val(false, TYPE_BOOL);
+		}
+
+	auto rval = osquery_mgr->Connect(a->CheckString(), p->Port(),
+	                              std::chrono::duration<double>(retry));
+	return new Val(rval, TYPE_BOOL);
+	%}
+
+## Initiate remote connections with multiple hosts. Takes Bro table (string of string)
+## as argument: where IP is key and port is as value.
+##
+## addr_port: Table of IP addresses to connect to, e.g. "localhost" or "127.0.0.1".
+##	     and TCP port on which the remote side is listening.
+##
+## retry: an interval at which to retry establishing the
+##        connection with the remote peer if it cannot be made initially, or
+##        if it ever becomes disconnected.
+##
+## Returns: true if it's possible to try connecting with the peers and
+##          it's a new peer. 
+##
+function osquery::groupconnect%(addr_port: table_string_of_string,
+				retry: interval%): bool
+	%{
+	 if ( addr_port->Type()->Tag() != TYPE_TABLE )
+	 {
+	 builtin_error("Requires a table argument");
+	 return new Val(-1, TYPE_BOOL);
+	 }
+
+	 auto args = osquery_mgr->MakeTableArguments(addr_port->AsTableVal());
+	 auto rval = osquery_mgr->GroupConnect(args->AsRecordVal(),
+	                            std::chrono::duration<double>(retry));
+
+	return new Val(rval, TYPE_BOOL);
+	%}
+
+## Remove a remote connection(single host).
+##
+## a: the address used in previous successful call to :bro:see:`osquery::connect`.
+##
+## p: the port used in previous successful call to :bro:see:`osquery::connect`.
+##
+## Returns: true if the arguments match a previously successful call to
+##          :bro:see:`osquery::connect`.
+function osquery::disconnect%(a: string, p: port%): bool
+	%{
+	if ( ! p->IsTCP() )
+		{
+		reporter->Error("remote connection port must use tcp");
+		return new Val(false, TYPE_BOOL);
+		}
+
+	auto rval = osquery_mgr->Disconnect(a->CheckString(), p->Port());
+	return new Val(rval, TYPE_BOOL);
+	%}
+
+## Register interest in all peer event messages that use a certain topic prefix.
+##
+## topic_prefix: a prefix to match against remote message topics.
+##               e.g. an empty prefix matches everything and "a" matches
+##               "alice" and "amy" but not "bob".
+##
+## Returns: true if it's a new event subscription and it is now registered.
+function osquery::subscribe_to_events%(topic_prefix: string%): bool
+	%{
+	auto rval = osquery_mgr->SubscribeToEvents(topic_prefix->CheckString());
+	return new Val(rval, TYPE_BOOL);
+	%}
+
+## Sends a query in form of event to any interested peers (single query subscription).
+## args are event and SQL query string.
+##
+## Returns: true if the message is sent.
+
+function osquery::subscribe%(...%): bool
+	%{	
+	auto args = osquery_mgr->MakeSubscriptionArgs(@ARGS@);
+
+	auto rval = osquery_mgr->Event("/bro/event/osquery", args->AsRecordVal(),
+	                            2);
+	return new Val(rval, TYPE_BOOL);
+	%}
+
+## Sends a group of queries in form of events to any interested peers.
+## Multiple query subscription is done with this function. This function
+## can also send single query if there is only one entry in table.
+## 
+## topic: a prefix to match against remote message topics.
+##               e.g. an empty prefix matches everything and "a" matches
+##               "alice" and "amy" but not "bob". 
+## query: Table of string of strings. Contains event name and query as table row.
+## flags: a topic to allow messages to be published under.
+##
+## Returns: true if the group subscription is successful.
+function osquery::groupsubscribe%(topic: string, query: table_string_of_string,
+			 flags: SendFlags &default = SendFlags()%): bool
+	%{
+	if ( query->Type()->Tag() != TYPE_TABLE )
+		{
+		builtin_error("Requires a table argument");
+		return new Val(-1, TYPE_BOOL);
+		}
+
+	auto args = osquery_mgr->MakeTableArguments(query->AsTableVal());
+	
+	auto rval = osquery_mgr->GroupEvent(topic->CheckString(), args->AsRecordVal(),
+	                            flags);
+
+	return new Val(rval, TYPE_BOOL);
+	%}
+
