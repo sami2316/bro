@@ -8,7 +8,9 @@
  ##
  ##
 
-##! Functions for peering and osquery querying/
+##! Functions for establishing connections (single or group) and subscribing 
+## queries 
+##! (single or multiple).
 
 %%{
 #include "broker/OsqueryManager.h"
@@ -27,7 +29,8 @@ type osquery::EndpointFlags: record;
 ## flags: used to tune the local Broker endpoint behavior.
 ##
 ## Returns: true if communication is successfully initialized.
-function osquery::enable%(flags: EndpointFlags &default = EndpointFlags()%): bool
+function osquery::enable%(flags: EndpointFlags &default = EndpointFlags()%):
+ bool
 	%{
 	return new Val(osquery_mgr->Enable(flags), TYPE_BOOL);
 	%}
@@ -37,13 +40,15 @@ function osquery::enable%(flags: EndpointFlags &default = EndpointFlags()%): boo
 ##
 ## topic: a topic to allow messages to be published under.
 ##
-## Returns: true if successful.
+## Returns: true if topic is successfully published.
 function osquery::publish_topic%(topic: string%): bool
 	%{
-	return new Val(osquery_mgr->PublishTopic(topic->CheckString()), TYPE_BOOL);
+	return new Val(osquery_mgr->PublishTopic(topic->CheckString()), 
+TYPE_BOOL);
 	%}
 
-## Disallow sending messages to peers if associated with the given topic.
+## Disallow sending messages to peers even if they were associated with a given
+## topic.
 ## This has no effect if auto publication behavior is enabled via the flags
 ##
 ## topic: a topic to disallow messages to be published under.
@@ -51,7 +56,8 @@ function osquery::publish_topic%(topic: string%): bool
 ## Returns: true if successful.
 function osquery::unpublish_topic%(topic: string%): bool
 	%{
-	return new Val(osquery_mgr->UnpublishTopic(topic->CheckString()), TYPE_BOOL);
+	return new Val(osquery_mgr->UnpublishTopic(topic->CheckString()),
+ TYPE_BOOL);
 	%}
 
 
@@ -82,10 +88,13 @@ function osquery::connect%(a: string, p: port, retry: interval%): bool
 	return new Val(rval, TYPE_BOOL);
 	%}
 
-## Initiate remote connections with multiple hosts. Takes Bro table (string of string)
-## as argument: where IP is key and port is as value.
+## Initiate remote connections with multiple hosts. Takes Bro table (string
+## of string)
+## as argument: where IP is the key and the corresponding port is stored at the
+## IP key.
 ##
-## addr_port: Table of IP addresses to connect to, e.g. "localhost" or "127.0.0.1".
+## addr_port: Table of IP addresses to connect to, e.g. "localhost" or 
+## "127.0.0.1".
 ##	     and TCP port on which the remote side is listening.
 ##
 ## retry: an interval at which to retry establishing the
@@ -113,7 +122,8 @@ function osquery::groupconnect%(addr_port: table_string_of_string,
 
 ## Remove a remote connection(single host).
 ##
-## a: the address used in previous successful call to :bro:see:`osquery::connect`.
+## a: the address used in previous successful call to 
+## :bro:see:`osquery::connect`.
 ##
 ## p: the port used in previous successful call to :bro:see:`osquery::connect`.
 ##
@@ -144,33 +154,52 @@ function osquery::subscribe_to_events%(topic_prefix: string%): bool
 	return new Val(rval, TYPE_BOOL);
 	%}
 
-## Sends a query in form of event to any interested peers (single query subscription).
+## Sends a query in the form of an event to an interested peer or peers in case
+## of a single query subscription.
 ## args are event and SQL query string.
+##
+## ev: event name defined in bro script and mapped with SQL query
+## query: SQL query string that needs to be sent at the osquery side.
+## inidumpflag: set it to true if interested in an initial dump of a requested
+## query table.
+## topic: broker topic, used to send broker::message to interested peer or 
+## peers only.
+## 	  default value is /bro/event/
+## flags: flag to tune the message behaviour
 ##
 ## Returns: true if the message is sent.
 
-function osquery::subscribe%(...%): bool
+function osquery::subscribe%(ev: string, query: string,
+		inidumpflag: bool &default = F,
+		topic: string &default = "/bro/event/",
+		flags: SendFlags &default = SendFlags() %): bool
 	%{	
 	auto args = osquery_mgr->MakeSubscriptionArgs(@ARGS@);
 
-	auto rval = osquery_mgr->Event("/bro/event/osquery", args->AsRecordVal(),
-	                            2);
+	auto rval = osquery_mgr->Event(topic->CheckString(), 
+        args->AsRecordVal(), inidumpflag,flags);
 	return new Val(rval, TYPE_BOOL);
 	%}
 
-## Sends a group of queries in form of events to any interested peers.
-## Multiple query subscription is done with this function. This function
-## can also send single query if there is only one entry in table.
+## Sends a group of queries in the form of events to an interested peer or 
+## peers.
+## Multiple query subscription is done with the help of this function. 
+## This function can also send single query if there is only one entry in the 
+## bro table.
 ## 
 ## topic: a prefix to match against remote message topics.
 ##               e.g. an empty prefix matches everything and "a" matches
 ##               "alice" and "amy" but not "bob". 
-## query: Table of string of strings. Contains event name and query as table row.
+## query: A Table of string of strings. Contains a distinct event's name and the
+## corresponding query in each row of a table.
+## inidumpflag: set it to true if interested in an initial dump of the requested
+## query table.
 ## flags: a topic to allow messages to be published under.
 ##
 ## Returns: true if the group subscription is successful.
 function osquery::groupsubscribe%(topic: string, query: table_string_of_string,
-			 flags: SendFlags &default = SendFlags()%): bool
+			 inidumpflag: bool &default = F,
+			flags: SendFlags &default = SendFlags()%): bool
 	%{
 	if ( query->Type()->Tag() != TYPE_TABLE )
 		{
@@ -180,8 +209,9 @@ function osquery::groupsubscribe%(topic: string, query: table_string_of_string,
 
 	auto args = osquery_mgr->MakeTableArguments(query->AsTableVal());
 	
-	auto rval = osquery_mgr->GroupEvent(topic->CheckString(), args->AsRecordVal(),
-	                            flags);
+	auto rval = osquery_mgr->GroupEvent(topic->CheckString(), 
+        args->AsRecordVal(),
+	                            inidumpflag, flags);
 
 	return new Val(rval, TYPE_BOOL);
 	%}
