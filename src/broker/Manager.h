@@ -152,7 +152,7 @@ public:
 	 * @return true if the message is sent successfully.
 	 */
 	bool Event(std::string topic, RecordVal* args, Val* flags);
-
+	
 	/**
 	 * Send a log entry to any interested peers.  The topic name used is
 	 * implicitly "bro/log/<stream-name>".
@@ -324,6 +324,9 @@ public:
 	 */
 	static int send_flags_to_int(Val* flags);
 
+protected:
+	std::unique_ptr<broker::endpoint> endpoint;
+	static VectorType* vector_of_data_type;
 private:
 
 	// IOSource interface overrides:
@@ -345,7 +348,6 @@ private:
 		size_t received = 0;
 	};
 
-	std::unique_ptr<broker::endpoint> endpoint;
 	std::map<std::pair<std::string, uint16_t>, broker::peering> peers;
 	std::map<std::string, QueueWithStats> print_subscriptions;
 	std::map<std::string, QueueWithStats> event_subscriptions;
@@ -358,7 +360,7 @@ private:
 	Stats statistics;
 	double next_timestamp;
 
-	static VectorType* vector_of_data_type;
+	
 	static EnumType* log_id_type;
 	static int send_flags_self_idx;
 	static int send_flags_peers_idx;
