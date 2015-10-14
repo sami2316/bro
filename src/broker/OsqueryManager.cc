@@ -39,6 +39,7 @@ bro_broker::OsqueryManager::~OsqueryManager()
 	{
 	}
 
+
 bool bro_broker::OsqueryManager::GroupConnect(RecordVal* addr_port,
 	             std::chrono::duration<double> retry_interval)
 {
@@ -59,14 +60,13 @@ bool bro_broker::OsqueryManager::GroupConnect(RecordVal* addr_port,
 		auto port_val = static_cast<DataVal*>(port);
 
 		Manager::Connect(broker::to_string(addr_val->data),
-			std::stoul(broker::to_string(port_val->data)),
-                        retry_interval);
+				std::stoul(broker::to_string(port_val->data)),retry_interval);
 	}
 	return true;
 }
 
-bool bro_broker::OsqueryManager::Event(std::string topic, RecordVal* args,
-        bool inidump, Val* flags)
+bool bro_broker::OsqueryManager::Event(std::string topic, RecordVal* args, std::string ev_type, 
+					bool inidump, Val* flags)
 	{
 	if ( ! Manager::Enabled() )
 		return false;
@@ -81,6 +81,7 @@ bool bro_broker::OsqueryManager::Event(std::string topic, RecordVal* args,
 	broker::message msg;
 	msg.emplace_back(event_name);
 	msg.emplace_back(query);
+	msg.emplace_back(ev_type);
 	msg.emplace_back(inidump);
 
 	// send broker::message to interested peer.
@@ -88,16 +89,16 @@ bool bro_broker::OsqueryManager::Event(std::string topic, RecordVal* args,
 	return true;
 	}
 
-bool bro_broker::OsqueryManager::GroupEvent(std::string topic, RecordVal* args, 
-        bool inidump, Val* flags)
+bool bro_broker::OsqueryManager::GroupEvent(std::string topic, RecordVal* args, std::string ev_type,
+					 bool inidump, Val* flags)
 	{
 	if ( ! Manager::Enabled() )
 		return false;
 
 	if ( ! args->Lookup(0) )
 		return false;
-	// Query Table is returned as a vector. Odd index contains an event's 
-        //name and an even index contains a SQL query. 
+	// Query Table is returned as a vector. Odd index contains an event's name and 
+	// an even index contains a SQL query. 
 	auto vv = args->Lookup(0)->AsVectorVal();
 	broker::message msg;
 	// iterate over vector and formulate broker messages for each query.
@@ -111,6 +112,7 @@ bool bro_broker::OsqueryManager::GroupEvent(std::string topic, RecordVal* args,
 		auto query = vv->Lookup(i+1)->AsRecordVal()->Lookup(0);
 		auto query_val = static_cast<DataVal*>(query);
 		msg.emplace_back(query_val->data);
+		msg.emplace_back(ev_type);
 		msg.emplace_back(inidump);
 	
 		endpoint->send(topic, msg, send_flags_to_int(flags));
@@ -128,12 +130,33 @@ RecordVal* bro_broker::OsqueryManager::MakeSubscriptionArgs(val_list* args)
 		return nullptr;
 
 	auto rval = new RecordVal(BifType::Record::BrokerComm::EventArgs);
+	Func* func = 0;
 
 	//extract event_name and SQL string form arguments
 	for ( auto i = 0; i < 2; i++ )
 		{
 		//make record value
 		auto data_val = (*args)[i];
+		if ( i == 0 )
+			{
+			// Event val must come first.
+
+			if ( data_val->Type()->Tag() != TYPE_FUNC )
+				{
+				reporter->Error("1st param of BrokerComm::event_args must be event");
+				return rval;
+				}
+
+			func = data_val->AsFunc();
+
+			if ( func->Flavor() != FUNC_FLAVOR_EVENT )
+				{
+				reporter->Error("1st param of BrokerComm::event_args must be event");
+				return rval;
+				}
+			rval->Assign(0, new StringVal(func->Name()));
+			continue;
+			}
 		rval->Assign(i, data_val);
 			
 		}
@@ -153,15 +176,13 @@ RecordVal* bro_broker::OsqueryManager::MakeTableArguments(TableVal* tbl)
 	auto rval = new RecordVal(BifType::Record::BrokerComm::EventArgs);
 	auto arg_vec = new VectorVal(vector_of_data_type);
 	rval->Assign(0, arg_vec);
-	//place an event's name at the odd indices and SQL query at the even
-        //indices
+	//place an event's name at the odd indices and SQL query at the even indices
 	for (int i = 0; i < idxs->Length(); i++ )
 		{
 
 		auto key_val = make_data_val(idxs->Index(i));
 		arg_vec->Assign(i*2, key_val );
-		auto val_val = make_data_val(tbl->Lookup(idxs->Index(i), 
-                        false));
+		auto val_val = make_data_val(tbl->Lookup(idxs->Index(i), false));
 		arg_vec->Assign((i*2)+1, val_val);
 		}
 
