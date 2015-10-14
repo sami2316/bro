@@ -18,16 +18,12 @@ namespace bro_broker {
 
 	/*
 	 * QueryManager class is responsible for point to point peer connection
-	 * (single master to a single host) and point to multipoint connection 
-         * (single master
-	 * to multiple hosts). The class also enables a master to subscribe 
-         * either to a single query or to multiple queries at the monitoring 
-         * hosts. 
-	 * This class publically inherits Manager class and adds additoinal 
-         * functionality
+	 * (single master to a single host) and point to multipoint connection (single master
+	 * to multiple hosts). The class also enables a master to subscribe either to a single query 
+         * or to multiple queries at the monitoring hosts. 
+	 * This class publically inherits Manager class and adds additoinal functionality
 	 * 
-	 * To establish point to point peer connection, this class also uses 
-         * the base class Connect().
+	 * To establish point to point peer connection, this class also uses the base class Connect().
 	 */
 
 class OsqueryManager : public Manager {
@@ -48,8 +44,9 @@ public:
 	 *
 	 * @param addr_port A bro table (string of string) which contains
 	 * the IP address as a key and the port as a value.
-	 * @param retry_interval an interval at which the master host retries 
-         * establishing a broken connection with the remote hosts of a group.
+	 * 
+	 * @param retry_interval an interval at which the master host retries establishing a
+	 * broken connection with the remote hosts of a group.
 	 *
 	 * @return true if the connections are successfully established.  
 	 */
@@ -58,41 +55,36 @@ public:
 
 	/**
 	 * Send a subscription message as an event to interested peers
-	 * (a single query subscription message to remote host or hosts that 
-         * have the interest in the same broker topic).
+	 * (a single query subscription message to remote host or hosts that have
+	 * the interest in the same broker topic).
 	 *
 	 * @param topic A topic string associated with the print message.
-	 * Peers advertise interest by registering to a subscription query 
-         * related to a topic name.
-	 * @param args the event and SQL query as "EventArgs record values" sent
-         *  to a host or group of hosts.
-	 * @param inidump set it to true if Master is interested in initial 
-         * dump.
+	 * Peers advertise interest by registering to a subscription query related
+	 * to a topic name.
+	 * @param args the event and SQL query as "EventArgs record values" sent to a host or group of hosts.
+	 * @param ev_type Interested event type whether "ADD" or "REMOVED".
+	 * @param inidump set it to true if Master is interested in initial dump.
 	 * @param flags tune the behavior of how the message is sent.
 	 *
 	 * @return true if the message is sent successfully.
 	 */	
-	bool Event(std::string topic, RecordVal* args,  bool inidump, 
-        Val* flags);
+	bool Event(std::string topic, RecordVal* args,  std::string ev_type, bool inidump, Val* flags);
 
 	/**
-	 * Send multiple subscripiton messages (multiple queries) as events to 
-         * interested peers.
+	 * Send multiple subscripiton messages (multiple queries) as events to interested peers.
 	 * (multiple queries subscription to remote host or hosts).
 	 *
 	 * @param topic A topic string associated with the print message.
-	 * Peers advertise interest by registering to a subscription query 
-         * related to a topic name.
-	 * @param args a group of events and corresponding SQL queries are sent
-         *  to a host or group of hosts.  
-	 * @param inidump set it to true if Master is interested in initial 
-         * dump.
+	 * Peers advertise interest by registering to a subscription query related
+	 * to a topic name.
+	 * @param args a group of events and corresponding SQL queries are sent to a host or group of hosts.  
+	 * @param ev_type Interested event type whether "ADD" or "REMOVED".
+	 * @param inidump set it to true if Master is interested in initial dump.
 	 * @param flags tune the behavior of how the message is send.
 	 * 
 	 * @return true if the messages are sent successfully.
 	 */	
-	bool GroupEvent(std::string topic, RecordVal* args, bool inidump, 
-        Val* flags);
+	bool GroupEvent(std::string topic, RecordVal* args, std::string ev_type, bool inidump, Val* flags);
 
 	/**
 	 * Creates an EventArgs record value for subscription to a single query.
@@ -104,10 +96,9 @@ public:
 	RecordVal* MakeSubscriptionArgs(val_list* args);
 
 	/**
-	 * Creates an EventArgs record value for a subscription to multiple 
-         * queries.
-	 * @param args Bro table (string of string). The event is always the 
-         * first element in the row of bro table.
+	 * Creates an EventArgs record value for a subscription to multiple queries.
+	 * @param args Bro table (string of string). The event is always the first
+	 * element in the row of bro table.
 	 *
 	 * @return an EventArgs record value.
 	 */
