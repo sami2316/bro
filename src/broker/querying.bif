@@ -185,9 +185,9 @@ function osquery::subscribe_to_events%(topic_prefix: string%): bool
 ## Returns: true if the message is sent.
 
 function osquery::subscribe%(ev: any, query: string,
+		topic: string &default = "/bro/event/default",
 		ev_type: string &default = "ADD",
 		inidumpflag: bool &default = F,
-		topic: string &default = "/bro/event/",
 		flags: SendFlags &default = SendFlags() %): bool
 	%{	
 	auto args = osquery_mgr->MakeSubscriptionArgs(@ARGS@);
@@ -209,7 +209,8 @@ function osquery::subscribe%(ev: any, query: string,
 ## flags: a topic to allow messages to be published under.
 ##
 ## Returns: true if the group subscription is successful.
-function osquery::groupsubscribe%(topic: string, query: table_string_of_string,
+function osquery::groupsubscribe%(topic: string,
+			 query: table_string_of_string,
 			ev_type: string &default = "ADD",
 			inidumpflag: bool &default = F,
 			flags: SendFlags &default = SendFlags()%): bool
@@ -228,3 +229,19 @@ function osquery::groupsubscribe%(topic: string, query: table_string_of_string,
 	return new Val(rval, TYPE_BOOL);
 	%}
 
+## Print a topic message to any interested peers.  The receiver can use
+##
+## topic: a default topic associated to broker message.
+##
+## msg: the topic message to send to peers.
+##
+## flags: tune the behavior of how the message is sent.
+##
+## Returns: true if the message is sent.
+function osquery::print%(topic: string, msg: string,
+                      flags: SendFlags &default = SendFlags()%): bool
+	%{
+	auto rval = osquery_mgr->Print(topic->CheckString(), msg->CheckString(),
+	                            flags);
+	return new Val(rval, TYPE_BOOL);
+	%}
