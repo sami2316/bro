@@ -1,6 +1,7 @@
 module osquery;
 
 const broker_port: port = 9999/tcp &redef;
+const topic: string = "/bro/event/" &redef;
 redef exit_only_after_terminate = T;
 redef osquery::endpoint_name = "Printer";
 
@@ -133,7 +134,7 @@ global ready: event(peer_name: string);
 event bro_init()
 {
 	osquery::enable();
-	osquery::subscribe_to_events("/bro/event/");
+	osquery::subscribe_to_events(topic);
 	osquery::listen(broker_port,"192.168.0.120");
 	
 	gtable["192.168.1.211"] = "/bro/event/group1";
@@ -145,129 +146,204 @@ event BrokerComm::incoming_connection_established(peer_name: string)
 	print "BrokerComm::incoming_connection_establisted",  peer_name;
 	
 	if (peer_name in gtable)
-		osquery::print("/bro/event/",gtable[peer_name]);
+		osquery::print(topic,gtable[peer_name]);
 	else
-		osquery::print("/bro/event/", "/bro/event/default");
+		osquery::print(topic, topic + peer_name);
 
 }
 
 event ready(peer_name: string)
 {
 	print fmt("Sending queries at Peer =  %s ", peer_name);
-
-	#osquery::subscribe(acpi_tables,"SELECT name,size,md5 FROM acpi_tables","/bro/event/group1","ADD",T);
-
-	#######################################################################################
-	#osquery::subscribe(arp_cache,"SELECT address,mac,interface FROM arp_cache","/bro/event/group1","REMOVED",T);
-
-	#######################################################################################
-	osquery::subscribe(block_devices,"SELECT name,vendor,model FROM block_devices");
-
-	#######################################################################################
-	#osquery::subscribe(chrome_extensions,"SELECT name,author,path FROM chrome_extensions","/bro/event/group2");
-
+	if (peer_name in gtable)
+		osquery::subscribe(acpi_tables,"SELECT name,size,md5 FROM acpi_tables",gtable[peer_name],"ADD",T);
+	else
+		osquery::subscribe(acpi_tables,"SELECT name,size,md5 FROM acpi_tables",topic + peer_name,"ADD",T);
 	########################################################################################
-	#osquery::subscribe(cpuid,"SELECT feature,value FROM cpuid");
-
-	#######################################################################################
-	#osquery::subscribe(crontab,"SELECT hour,command,path FROM crontab");
-
-	#######################################################################################
-	#osquery::subscribe(disk_encryption,"SELECT name,uuid,encrypted FROM disk_encryption");
-
-	########################################################################################
-	#osquery::subscribe(etc_hosts,"SELECT address,hostnames FROM etc_hosts");
-
-	########################################################################################
-	#osquery::subscribe(etc_protocols,"SELECT name,number FROM etc_protocols");
-
-	#######################################################################################
-	#osquery::subscribe(etc_services,"SELECT name,port,protocol FROM etc_services");
-
-	#######################################################################################
-	#osquery::subscribe(file_events,"SELECT target_path,action,time FROM file_events");
-
-	#######################################################################################
-	#osquery::subscribe(firefox_addons,"SELECT name,source_url,location FROM firefox_addons");
-
-	#######################################################################################
-	#osquery::subscribe(groups,"SELECT gid,groupname FROM groups");
-
-	#######################################################################################
-	#osquery::subscribe(hardware_events,"SELECT action,model,vendor FROM hardware_events");
-
-	#######################################################################################
-	#osquery::subscribe(interface_address,"SELECT interface,address FROM interface_address");
-
-	#######################################################################################
-	#osquery::subscribe(interface_details,"SELECT interface,mac,mtu FROM interface_details");
-
-	#######################################################################################
-	#osquery::subscribe(kernel_info,"SELECT version,path,device FROM kernel_info");
-
-	#######################################################################################
-	#osquery::subscribe(last,"SELECT username,pid,host FROM last");
-
-	#######################################################################################
-	#osquery::subscribe(listening_ports,"SELECT pid,port,protocol FROM listening_ports");
-
-	#######################################################################################
-	#osquery::subscribe(logged_in_users,"SELECT user,host, user,time FROM logged_in_users");
-
-	########################################################################################
-	#osquery::subscribe(mounts,"SELECT device,path FROM mounts");
-
-	########################################################################################
-	#osquery::subscribe(opera_extensions,"SELECT name,description,author FROM opera_extensions");
-
-	#######################################################################################
-	#osquery::subscribe(os_version,"SELECT name,patch,build FROM os_version","/bro/event/group2","Add",T);
-
-	#######################################################################################
-	#osquery::subscribe(passwd_changes,"SELECT target_path,action FROM passwd_changes");
-
-	#######################################################################################
-	#osquery::subscribe(pci_devices,"SELECT pci_slot,driver,vendor,model FROM pci_devices");
-
-	#######################################################################################
-	#osquery::subscribe(process_envs,"SELECT pid,key,value FROM process_envs");
-
-	#######################################################################################
-	#osquery::subscribe(process_memory_map,"SELECT pid,permissions,device FROM process_memory_map");
-
-	#######################################################################################
-	#osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files");
-
+	#if (peer_name in gtable)
+	#	osquery::subscribe(arp_cache,"SELECT address,mac,interface FROM arp_cache",gtable[peer_name],"REMOVED",T);
+	#else
+	#	osquery::subscribe(arp_cache,"SELECT address,mac,interface FROM arp_cache",topic + peer_name,"REMOVED",T);
 	######################################################################################
-	#osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol FROM process_open_sockets");
-
+	#if (peer_name in gtable)
+	#	osquery::subscribe(block_devices,"SELECT name,vendor,model FROM block_devices",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(block_devices,"SELECT name,vendor,model FROM block_devices",topic + peer_name);
 	#######################################################################################
-	osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes","/bro/event/group1","REMOVED");
-
-	#######################################################################################
-	#osquery::subscribe(routes,"SELECT destination,source,interface FROM routes");
-
-	#######################################################################################
-	#osquery::subscribe(shell_history,"SELECT username,command FROM shell_history");
-
-	#######################################################################################
-	#osquery::subscribe(smbios_tables,"SELECT number,description,size FROM smbios_tables");
-
-	#######################################################################################
-	#osquery::subscribe(system_controls,"SELECT name,oid,subsystem FROM system_controls");
-
-	#######################################################################################
-	#osquery::subscribe(uptime,"SELECT days,hours FROM uptime");
-
-	#######################################################################################
-	#osquery::subscribe(usb_devices,"SELECT usb_address,vendor,model FROM usb_devices","/bro/event/group1","REMOVED");
-
+	#if (peer_name in gtable)
+	#	osquery::subscribe(chrome_extensions,"SELECT name,author,path FROM chrome_extensions",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(chrome_extensions,"SELECT name,author,path FROM chrome_extensions",topic + peer_name);
+	#########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(cpuid,"SELECT feature,value FROM cpuid",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(cpuid,"SELECT feature,value FROM cpuid",topic + peer_name);
 	########################################################################################
-	#osquery::subscribe(user_groups,"SELECT uid,gid FROM user_groups");
-
+	#if (peer_name in gtable)
+	#	osquery::subscribe(crontab,"SELECT hour,command,path FROM crontab",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(crontab,"SELECT hour,command,path FROM crontab",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(disk_encryption,"SELECT name,uuid,encrypted FROM disk_encryption",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(disk_encryption,"SELECT name,uuid,encrypted FROM disk_encryption",topic + peer_name);
 	########################################################################################
-	#osquery::subscribe(users,"SELECT username,uid,gid FROM users");
-
+	#if (peer_name in gtable)
+	#	osquery::subscribe(etc_hosts,"SELECT address,hostnames FROM etc_hosts",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(etc_hosts,"SELECT address,hostnames FROM etc_hosts",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(etc_protocols,"SELECT name,number FROM etc_protocols",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(etc_protocols,"SELECT name,number FROM etc_protocols",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(etc_services,"SELECT name,port,protocol FROM etc_services",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(etc_services,"SELECT name,port,protocol FROM etc_services",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(file_events,"SELECT target_path,action,time FROM file_events",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(file_events,"SELECT target_path,action,time FROM file_events",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(firefox_addons,"SELECT name,source_url,location FROM firefox_addons",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(firefox_addons,"SELECT name,source_url,location FROM firefox_addons",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(groups,"SELECT gid,groupname FROM groups",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(groups,"SELECT gid,groupname FROM groups",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(hardware_events,"SELECT action,model,vendor FROM hardware_events",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(hardware_events,"SELECT action,model,vendor FROM hardware_events",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(interface_address,"SELECT interface,address FROM interface_address",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(interface_address,"SELECT interface,address FROM interface_address",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(interface_details,"SELECT interface,mac,mtu FROM interface_details",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(interface_details,"SELECT interface,mac,mtu FROM interface_details",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(kernel_info,"SELECT version,path,device FROM kernel_info",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(kernel_info,"SELECT version,path,device FROM kernel_info",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(last,"SELECT username,pid,host FROM last",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(last,"SELECT username,pid,host FROM last",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(listening_ports,"SELECT pid,port,protocol FROM listening_ports",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(listening_ports,"SELECT pid,port,protocol FROM listening_ports",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(logged_in_users,"SELECT user,host, user,time FROM logged_in_users",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(logged_in_users,"SELECT user,host, user,time FROM logged_in_users",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(mounts,"SELECT device,path FROM mounts",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(mounts,"SELECT device,path FROM mounts",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(opera_extensions,"SELECT name,description,author FROM opera_extensions",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(opera_extensions,"SELECT name,description,author FROM opera_extensions",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(os_version,"SELECT name,patch,build FROM os_version",gtable[peer_name],"Add",T);
+	#else
+	#	osquery::subscribe(os_version,"SELECT name,patch,build FROM os_version",topic + peer_name,"Add",T);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(passwd_changes,"SELECT target_path,action FROM passwd_changes",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(passwd_changes,"SELECT target_path,action FROM passwd_changes",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(pci_devices,"SELECT pci_slot,driver,vendor,model FROM pci_devices",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(pci_devices,"SELECT pci_slot,driver,vendor,model FROM pci_devices",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(process_envs,"SELECT pid,key,value FROM process_envs",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(process_envs,"SELECT pid,key,value FROM process_envs",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(process_memory_map,"SELECT pid,permissions,device FROM process_memory_map",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(process_memory_map,"SELECT pid,permissions,device FROM process_memory_map",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files",topic + peer_name);
+	######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol FROM process_open_sockets",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol FROM process_open_sockets",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes",gtable[peer_name],"REMOVED");
+	#else
+	#	osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes",topic + peer_name,"REMOVED");
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(routes,"SELECT destination,source,interface FROM routes",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(routes,"SELECT destination,source,interface FROM routes",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(shell_history,"SELECT username,command FROM shell_history",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(shell_history,"SELECT username,command FROM shell_history",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(smbios_tables,"SELECT number,description,size FROM smbios_tables",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(smbios_tables,"SELECT number,description,size FROM smbios_tables",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(system_controls,"SELECT name,oid,subsystem FROM system_controls",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(system_controls,"SELECT name,oid,subsystem FROM system_controls",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(uptime,"SELECT days,hours FROM uptime",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(uptime,"SELECT days,hours FROM uptime",topic + peer_name);
+	#######################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(usb_devices,"SELECT usb_address,vendor,model FROM usb_devices",gtable[peer_name],"REMOVED");
+	#else
+	#	osquery::subscribe(usb_devices,"SELECT usb_address,vendor,model FROM usb_devices",topic + peer_name,"REMOVED");
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(user_groups,"SELECT uid,gid FROM user_groups",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(user_groups,"SELECT uid,gid FROM user_groups",topic + peer_name);
+	########################################################################################
+	#if (peer_name in gtable)
+	#	osquery::subscribe(users,"SELECT username,uid,gid FROM users",gtable[peer_name]);
+	#else
+	#	osquery::subscribe(users,"SELECT username,uid,gid FROM users",topic + peer_name);
 	#######################################################################################
 		
 }
