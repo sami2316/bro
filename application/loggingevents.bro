@@ -85,7 +85,7 @@ event BrokerComm::incoming_connection_established(peer_name: string)
 	if (peer_name in gtable)
 		osquery::print("/bro/event/",gtable[peer_name]);
 	else
-		osquery::print("/bro/event/", "/bro/event/default");
+		osquery::print("/bro/event/", "/bro/event/" + peer_name);
 
 }
 
@@ -94,15 +94,22 @@ event ready(peer_name: string)
 	print fmt("Sending queries at Peer =  %s ", peer_name);
 
 	#######################################################################################
-	osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files","/bro/event/group1");
- 	
+	if (peer_name in gtable)
+		osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files",gtable[peer_name]);
+ 	else
+ 		osquery::subscribe(process_open_files,"SELECT pid,fd,path FROM process_open_files","/bro/event/" + peer_name);
 	#######################################################################################
-	osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes","/bro/event/group1");
-
+	if (peer_name in gtable)
+		osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes",gtable[peer_name]);
+	else
+		osquery::subscribe(processes,"SELECT pid,name,cwd,on_disk FROM processes","/bro/event/" + peer_name);
 	#######################################################################################
-	osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol,remote_address FROM process_open_sockets",
-		"/bro/event/group1","ADD",T);
-
+	if (peer_name in gtable)
+		osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol,remote_address FROM process_open_sockets",
+		gtable[peer_name],"ADD",T);
+	else
+		osquery::subscribe(process_open_sockets,"SELECT pid,socket,protocol,remote_address FROM process_open_sockets",
+		"/bro/event/" + peer_name,"ADD",T);
 }
 
 event BrokerComm::incoming_connection_broken(peer_name: string)
